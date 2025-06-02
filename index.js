@@ -12,6 +12,7 @@ const PORT = process.env.PORT || 3000;
 app.use(bodyParser.json({ limit: '999mb' }));
 
 const messages = {}; // ข้อความคิวของแต่ละอุปกรณ์
+const onlineStatus = {};
 
 // ส่งข้อความ
 app.post('/send', (req, res) => {
@@ -25,7 +26,7 @@ app.post('/send', (req, res) => {
 });
 
 // รับข้อความ (polling)
-app.get('/poll/:device', (req, res) => {
+/*app.get('/poll/:device', (req, res) => {
   const device = req.params.device;
   const deviceMessages = messages[device] || [];
 
@@ -36,6 +37,54 @@ app.get('/poll/:device', (req, res) => {
     res.send({ message: null });
   }
 });
+*/
+
+
+
+
+
+// เก็บข้อความ และสถานะออนไลน์
+const messages = {};
+const onlineStatus = {};
+
+// Polling พร้อมอัปเดตสถานะออนไลน์
+app.get('/poll/:device', (req, res) => {
+  const device = req.params.device;
+
+  // อัปเดตสถานะออนไลน์ด้วย timestamp ปัจจุบัน
+  onlineStatus[device] = Date.now();
+
+  const deviceMessages = messages[device] || [];
+
+  if (deviceMessages.length > 0) {
+    const msg = deviceMessages.shift();
+    res.send({ message: msg, online: true });
+  } else {
+    // ไม่มีข้อความส่งกลับ แต่บอกว่า online
+    res.send({ message: null, online: true });
+  }
+});
+
+// Endpoint ดู Device ที่ online (ใน 10 วินาทีล่าสุด)
+app.get('/online', (req, res) => {
+  const now = Date.now();
+  const threshold = 10000; // 10 วินาที
+
+  const onlineDevices = Object.entries(onlineStatus)
+    .filter(([_, timestamp]) => now - timestamp < threshold)
+    .map(([device, _]) => device);
+
+  res.send({ online: onlineDevices });
+});
+
+
+
+
+
+
+
+
+
 
 // -------- File Upload System --------
 const FILE_PATH = '/tmp/singlefile';
