@@ -13,26 +13,47 @@ const wss = new WebSocket.Server({ server });
 app.use(bodyParser.json());
 
 // ======================= WebSocket =======================
-let clients = [];
+let clients = []; // เก็บ { id, ws }
 
 wss.on("connection", function (ws) {
   console.log("🔌 New WebSocket connection");
-  clients.push(ws);
 
-  ws.on("close", () => {
-    clients = clients.filter((client) => client !== ws);
+  // รอรับข้อความแรกเพื่อ register clientId
+  ws.once("message", (message) => {
+    try {
+      const data = JSON.parse(message);
+      if (data.type === "register" && data.clientId) {
+        clients.push({ id: data.clientId, ws: ws });
+        console.log(`📡 Registered client: ${data.clientId}`);
+
+        // รับข้อความอื่น ๆ จาก client นี้
+        ws.on("message", (msg) => {
+          console.log(`Message from ${data.clientId}: ${msg}`);
+          // คุณอาจจะประมวลผลข้อความนี้ หรือส่งต่อก็ได้
+        });
+
+        ws.on("close", () => {
+          clients = clients.filter((client) => client.ws !== ws);
+          console.log(`❌ Client disconnected: ${data.clientId}`);
+        });
+      } else {
+        ws.close(1008, "Missing or invalid registration");
+      }
+    } catch (e) {
+      ws.close(1008, "Invalid registration format");
+    }
   });
 });
 
-// Broadcast HTTP -> WebSocket
+// Broadcast HTTP -> WebSocket (ส่งข้อความแบบ broadcast ไปทุก client)
 app.post("/send", (req, res) => {
   const message = req.body.message;
   if (!message) return res.status(400).send("Missing 'message'");
   console.log("📡 Broadcasting:", message);
 
   clients.forEach((client) => {
-    if (client.readyState === WebSocket.OPEN) {
-      client.send(message);
+    if (client.ws.readyState === WebSocket.OPEN) {
+      client.ws.send(message);
     }
   });
 
@@ -80,3 +101,4 @@ const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log("🚀 Server running on port " + PORT);
 });
+
