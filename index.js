@@ -45,20 +45,39 @@ wss.on("connection", function (ws) {
   });
 });
 
-// Broadcast HTTP -> WebSocket (ส่งข้อความแบบ broadcast ไปทุก client)
+
+// Broadcast or targeted send HTTP -> WebSocket
 app.post("/send", (req, res) => {
   const message = req.body.message;
+  const target = req.body.target; // clientId ที่จะส่งข้อความถึง (optional)
   if (!message) return res.status(400).send("Missing 'message'");
-  console.log("📡 Broadcasting:", message);
 
-  clients.forEach((client) => {
-    if (client.ws.readyState === WebSocket.OPEN) {
+  if (target) {
+    // ส่งแค่ client ที่ตรงกับ target
+    const client = clients.find((c) => c.id === target);
+    if (client && client.ws.readyState === WebSocket.OPEN) {
       client.ws.send(message);
+      console.log(`📡 Sent to ${target}:`, message);
+      return res.send(`✅ Message sent to ${target}`);
+    } else {
+      return res.status(404).send(`❌ Client ${target} not connected`);
     }
-  });
-
-  res.send("✅ Message broadcasted");
+  } else {
+    // ส่ง broadcast
+    clients.forEach((client) => {
+      if (client.ws.readyState === WebSocket.OPEN) {
+        client.ws.send(message);
+      }
+    });
+    console.log("📡 Broadcasting:", message);
+    return res.send("✅ Message broadcasted");
+  }
 });
+
+
+
+
+
 
 // ======================= File Upload/Download =======================
 const upload = multer({ dest: "/tmp/" });
