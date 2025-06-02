@@ -44,9 +44,6 @@ app.post('/send', (req, res) => {
 
 
 // เก็บข้อความ และสถานะออนไลน์
-const messages = {};
-const onlineStatus = {};
-
 // Polling พร้อมอัปเดตสถานะออนไลน์
 app.get('/poll/:device', (req, res) => {
   const device = req.params.device;
