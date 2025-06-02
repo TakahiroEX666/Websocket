@@ -3,7 +3,7 @@ const bodyParser = require('body-parser');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(bodyParser.json());
+app.use(bodyParser.json({ limit: '999mb' }));
 
 // ข้อมูลข้อความของแต่ละอุปกรณ์
 const messages = {};
