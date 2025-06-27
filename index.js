@@ -1,8 +1,10 @@
 const express = require('express');
+const cors = require('cors');
 const { google } = require('googleapis');
 require('dotenv').config();
 
 const app = express();
+app.use(cors()); // ✅ เพิ่ม CORS
 app.use(express.json());
 
 const oauth2Client = new google.auth.OAuth2(
@@ -13,6 +15,7 @@ const oauth2Client = new google.auth.OAuth2(
 
 let youtube = null;
 
+// ⛳ Step 1: Authorize URL
 app.get('/', (req, res) => {
   const authUrl = oauth2Client.generateAuthUrl({
     access_type: 'offline',
@@ -21,14 +24,16 @@ app.get('/', (req, res) => {
   res.send(`<a href="${authUrl}">Authorize with Google</a>`);
 });
 
+// ✅ Step 2: Handle OAuth2 Callback
 app.get('/oauth2callback', async (req, res) => {
   const { code } = req.query;
   const { tokens } = await oauth2Client.getToken(code);
   oauth2Client.setCredentials(tokens);
   youtube = google.youtube({ version: 'v3', auth: oauth2Client });
-  res.send('✅ Authorized! Now you can use /list, /add, /delete');
+  res.send('✅ Authorized! Now you can use /list, /add, /delete, /playlists');
 });
 
+// ✅ List videos in a playlist
 app.get('/list', async (req, res) => {
   const playlistId = req.query.playlistId;
   try {
@@ -47,6 +52,7 @@ app.get('/list', async (req, res) => {
   }
 });
 
+// ✅ Add video to a playlist
 app.post('/add', async (req, res) => {
   const { playlistId, videoId } = req.body;
   try {
@@ -68,6 +74,7 @@ app.post('/add', async (req, res) => {
   }
 });
 
+// ✅ Delete video from a playlist
 app.delete('/delete', async (req, res) => {
   const { itemId } = req.body;
   try {
@@ -78,8 +85,25 @@ app.delete('/delete', async (req, res) => {
   }
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Running on http://localhost:${PORT}`);
+// ✅ Fetch user's playlists
+app.get('/playlists', async (req, res) => {
+  try {
+    const response = await youtube.playlists.list({
+      part: 'snippet',
+      mine: true,
+      maxResults: 50,
+    });
+    res.json(response.data.items.map(item => ({
+      id: item.id,
+      title: item.snippet.title,
+    })));
+  } catch (err) {
+    res.status(500).send(err.message);
+  }
 });
 
+// ✅ Start server
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`🚀 Server running at http://localhost:${PORT}`);
+});
